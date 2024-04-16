@@ -20,6 +20,11 @@ import java.util.concurrent.Executors;
  */
 public class ChatServer {
 
+    private static final String ANSI_RESET = "\u001B[0m";
+    private static final String ANSI_GREEN = "\u001B[32m";
+    private static final String ANSI_BLUE = "\u001B[34m";
+    private static final String ANSI_RED = "\u001B[31m";
+
     // All client names, so we can check for duplicates upon registration.
     private static Set<String> names = new HashSet<>();
 
@@ -85,7 +90,7 @@ public class ChatServer {
                 // But BEFORE THAT, let everyone else know that the new person has joined!
                 out.println("NAMEACCEPTED " + name);
                 for (PrintWriter writer : writers) {
-                    writer.println("MESSAGE " + name + " has joined");
+                    writer.println("ENTER " + name + " has joined");
                 }
                 writers.add(out);
 
@@ -109,7 +114,7 @@ public class ChatServer {
                     System.out.println(name + " is leaving");
                     names.remove(name);
                     for (PrintWriter writer : writers) {
-                        writer.println("MESSAGE " + name + " has left");
+                        writer.println("QUIT " + name + " has left");
                     }
                 }
                 try {

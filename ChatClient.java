@@ -9,8 +9,10 @@ import java.awt.BorderLayout;
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 import javax.swing.JScrollPane;
-import javax.swing.JTextArea;
 import javax.swing.JTextField;
+import javax.swing.JTextPane;
+import java.awt.*;
+import javax.swing.text.*;
 
 /**
  * A simple Swing-based client for the chat server. Graphically it is a frame
@@ -33,7 +35,8 @@ public class ChatClient {
     PrintWriter out;
     JFrame frame = new JFrame("Chatter");
     JTextField textField = new JTextField(50);
-    JTextArea messageArea = new JTextArea(16, 50);
+    JTextPane messagePane = new JTextPane();
+    StyledDocument doc = messagePane.getStyledDocument();
 
     /**
      * Constructs the client by laying out the GUI and registering a listener with
@@ -46,9 +49,8 @@ public class ChatClient {
         this.serverAddress = serverAddress;
 
         textField.setEditable(false);
-        messageArea.setEditable(false);
         frame.getContentPane().add(textField, BorderLayout.SOUTH);
-        frame.getContentPane().add(new JScrollPane(messageArea), BorderLayout.CENTER);
+        frame.getContentPane().add(new JScrollPane(messagePane), BorderLayout.CENTER);
         frame.pack();
 
         // Send on enter then clear to prepare for next message
@@ -65,6 +67,20 @@ public class ChatClient {
                 JOptionPane.PLAIN_MESSAGE);
     }
 
+    private void setMessage(JTextPane tp, String msg, Color c) {
+        // Obtem o contesto de estilo padrao do textpane
+        StyleContext sc = StyleContext.getDefaultStyleContext();
+        //cria um AttributeSet com as cor passada por parametro
+        AttributeSet aset = sc.addAttribute(SimpleAttributeSet.EMPTY, StyleConstants.Foreground, c);
+        // pega o comprimento
+        int len = tp.getDocument().getLength();
+        // seta o cursor pro final
+        tp.setCaretPosition(len);
+        //aplica o que foi criado
+        tp.setCharacterAttributes(aset, false);
+        tp.replaceSelection(msg);
+    }
+
     private void run() throws IOException {
         try {
             var socket = new Socket(serverAddress, 59001);
@@ -79,7 +95,11 @@ public class ChatClient {
                     this.frame.setTitle("Chatter - " + line.substring(13));
                     textField.setEditable(true);
                 } else if (line.startsWith("MESSAGE")) {
-                    messageArea.append(line.substring(8) + "\n");
+                    setMessage(messagePane, line.substring(8) + "\n", Color.BLACK);
+                } else if (line.startsWith("ENTER")) {
+                    setMessage(messagePane, line.substring(6) + "\n", Color.RED);
+                } else if (line.startsWith("QUIT")) {
+                    setMessage(messagePane, line.substring(5) + "\n", Color.BLUE);
                 }
             }
         } finally {
