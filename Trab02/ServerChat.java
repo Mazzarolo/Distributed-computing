@@ -1,90 +1,19 @@
+import javax.swing.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
-import javax.swing.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 
 public class ServerChat extends UnicastRemoteObject implements IServerChat {
     private ArrayList<String> roomList;
-    private Map<String, IRoomChat> rooms;
-
-    private JFrame frame;
-    private DefaultListModel<String> listModel;
-    private JList<String> roomJList;
-    private JButton closeButton;
-    private JButton createButton;
-    private JTextField roomTextField;
+    private Registry registry;
 
     protected ServerChat() throws RemoteException {
         super();
         roomList = new ArrayList<>();
-        rooms = new HashMap<>();
-        initGUI();
-    }
-
-    private void initGUI() {
-        frame = new JFrame("Server Chat");
-        listModel = new DefaultListModel<>();
-        roomJList = new JList<>(listModel);
-        closeButton = new JButton("Close Room");
-        createButton = new JButton("Create Room");
-        roomTextField = new JTextField(20);
-
-        frame.setLayout(new BoxLayout(frame.getContentPane(), BoxLayout.Y_AXIS));
-        frame.add(new JScrollPane(roomJList));
-        frame.add(roomTextField);
-        frame.add(createButton);
-        frame.add(closeButton);
-
-        createButton.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                String roomName = roomTextField.getText();
-                try {
-                    createRoom(roomName);
-                    roomTextField.setText("");
-                } catch (RemoteException ex) {
-                    ex.printStackTrace();
-                }
-            }
-        });
-
-        closeButton.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                String selectedRoom = roomJList.getSelectedValue();
-                if (selectedRoom != null) {
-                    try {
-                        rooms.get(selectedRoom).closeRoom();
-                        roomList.remove(selectedRoom);
-                        listModel.removeElement(selectedRoom);
-                        rooms.remove(selectedRoom);
-                    } catch (RemoteException ex) {
-                        ex.printStackTrace();
-                    }
-                }
-            }
-        });
-
-        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.pack();
-        frame.setVisible(true);
-    }
-
-    public static void main(String[] args) {
-        try {
-            ServerChat server = new ServerChat();
-            Registry registry = LocateRegistry.createRegistry(2020);
-            registry.rebind("Servidor", server);
-            System.out.println("Servidor de Chat está rodando...");
-        } catch (RemoteException e) {
-            e.printStackTrace();
-        }
     }
 
     @Override
@@ -94,11 +23,94 @@ public class ServerChat extends UnicastRemoteObject implements IServerChat {
 
     @Override
     public void createRoom(String roomName) throws RemoteException {
-        if (!rooms.containsKey(roomName)) {
-            RoomChat newRoom = new RoomChat(roomName);
-            rooms.put(roomName, newRoom);
+        if (!roomList.contains(roomName)) {
             roomList.add(roomName);
-            listModel.addElement(roomName);
+            RoomChat room = new RoomChat(roomName);
+            registry.rebind(roomName, room);
+            updateRoomList();
+        }
+    }
+
+    private void closeRoom(String roomName) throws RemoteException {
+        if (roomList.contains(roomName)) {
+            try {
+                IRoomChat room = (IRoomChat) registry.lookup(roomName);
+                room.closeRoom();
+                roomList.remove(roomName);
+                registry.unbind(roomName);
+                updateRoomList();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    private void updateRoomList() {
+        roomListArea.setText("");
+        for (String room : roomList) {
+            roomListArea.append(room + "\n");
+        }
+    }
+
+    private JTextArea roomListArea;
+
+    public static void main(String[] args) {
+        try {
+            ServerChat server = new ServerChat();
+            try {
+                server.registry = LocateRegistry.createRegistry(2020); // Cria um novo registry
+            } catch (RemoteException e) {
+                server.registry = LocateRegistry.getRegistry(2020); // Tenta obter o registry existente se já estiver criado
+            }
+            server.registry.rebind("Servidor", server);
+            System.out.println("Server is ready.");
+
+            // GUI do Servidor
+            JFrame frame = new JFrame("Server Chat");
+            JTextArea roomListArea = new JTextArea(20, 40);
+            roomListArea.setEditable(false);
+            server.roomListArea = roomListArea;
+            JTextField roomField = new JTextField(20);
+            JButton createButton = new JButton("Create Room");
+            JButton closeButton = new JButton("Close Room");
+
+            frame.setLayout(new BoxLayout(frame.getContentPane(), BoxLayout.Y_AXIS));
+            frame.add(new JScrollPane(roomListArea));
+            frame.add(roomField);
+            frame.add(createButton);
+            frame.add(closeButton);
+
+            createButton.addActionListener(new ActionListener() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    String roomName = roomField.getText();
+                    try {
+                        server.createRoom(roomName);
+                        roomField.setText("");
+                    } catch (RemoteException ex) {
+                        ex.printStackTrace();
+                    }
+                }
+            });
+
+            closeButton.addActionListener(new ActionListener() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    String roomName = roomField.getText();
+                    try {
+                        server.closeRoom(roomName);
+                        roomField.setText("");
+                    } catch (RemoteException ex) {
+                        ex.printStackTrace();
+                    }
+                }
+            });
+
+            frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+            frame.pack();
+            frame.setVisible(true);
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 }

@@ -20,7 +20,7 @@ public class UserChat extends UnicastRemoteObject implements IUserChat {
     private JButton joinButton;
     private JButton leaveButton;
     private JButton createButton;
-    private JButton refreshButton; 
+    private JButton refreshButton;
     private JList<String> roomJList;
     private DefaultListModel<String> listModel;
 
@@ -115,7 +115,7 @@ public class UserChat extends UnicastRemoteObject implements IUserChat {
             }
         });
 
-        refreshButton.addActionListener(new ActionListener() {  // Listener para o botão de atualização
+        refreshButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
                 updateRoomList();
