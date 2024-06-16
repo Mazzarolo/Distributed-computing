@@ -7,33 +7,34 @@ public class RoomChat extends UnicastRemoteObject implements IRoomChat {
     private String roomName;
     private Map<String, IUserChat> userList;
 
-    public RoomChat(String roomName) throws RemoteException {
+    protected RoomChat(String roomName) throws RemoteException {
+        super();
         this.roomName = roomName;
-        this.userList = new HashMap<>();
+        userList = new HashMap<>();
     }
 
     @Override
-    public synchronized void sendMsg(String usrName, String msg) throws RemoteException {
+    public void sendMsg(String usrName, String msg) throws RemoteException {
         for (IUserChat user : userList.values()) {
             user.deliverMsg(usrName, msg);
         }
     }
 
     @Override
-    public synchronized void joinRoom(String usrName, IUserChat user) throws RemoteException {
+    public void joinRoom(String usrName, IUserChat user) throws RemoteException {
         userList.put(usrName, user);
-        sendMsg("Server", usrName + " joined the room.");
+        sendMsg("Sistema", usrName + " entrou na sala.");
     }
 
     @Override
-    public synchronized void leaveRoom(String usrName) throws RemoteException {
+    public void leaveRoom(String usrName) throws RemoteException {
         userList.remove(usrName);
-        sendMsg("Server", usrName + " left the room.");
+        sendMsg("Sistema", usrName + " saiu da sala.");
     }
 
     @Override
-    public synchronized void closeRoom() throws RemoteException {
-        sendMsg("Server", "Sala fechada pelo servidor.");
+    public void closeRoom() throws RemoteException {
+        sendMsg("Sistema", "Sala fechada pelo servidor.");
         userList.clear();
     }
 
