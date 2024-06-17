@@ -11,6 +11,7 @@ public class UserChat extends UnicastRemoteObject implements IUserChat {
     private String usrName;
     private IServerChat server;
     private IRoomChat currentRoom;
+    private String serverIp;
 
     private JFrame frame;
     private JTextArea chatArea;
@@ -24,24 +25,25 @@ public class UserChat extends UnicastRemoteObject implements IUserChat {
     private JList<String> roomJList;
     private DefaultListModel<String> listModel;
 
-    protected UserChat(String usrName, IServerChat server) throws RemoteException {
+    protected UserChat(String usrName, IServerChat server, String serverIp) throws RemoteException {
         super();
         this.usrName = usrName;
         this.server = server;
+        this.serverIp = serverIp;
         initGUI();
     }
 
     private void initGUI() {
-        frame = new JFrame("User Chat: " + usrName);
+        frame = new JFrame("Chat de Usuario: " + usrName);
         chatArea = new JTextArea(20, 40);
         chatArea.setEditable(false);
         messageField = new JTextField(30);
         roomField = new JTextField(20);
-        sendButton = new JButton("Send");
-        joinButton = new JButton("Join Room");
-        leaveButton = new JButton("Leave Room");
-        createButton = new JButton("Create Room");
-        refreshButton = new JButton("Refresh Rooms");
+        sendButton = new JButton("Enviar");
+        joinButton = new JButton("Entrar na Sala");
+        leaveButton = new JButton("Sair da Sala");
+        createButton = new JButton("Criar Sala");
+        refreshButton = new JButton("Recarregar Salas");
         listModel = new DefaultListModel<>();
         roomJList = new JList<>(listModel);
 
@@ -75,9 +77,9 @@ public class UserChat extends UnicastRemoteObject implements IUserChat {
                 String roomName = roomJList.getSelectedValue();
                 if (roomName != null) {
                     try {
-                        currentRoom = (IRoomChat) LocateRegistry.getRegistry("localhost", 2020).lookup(roomName);
+                        currentRoom = (IRoomChat) LocateRegistry.getRegistry(serverIp, 2020).lookup(roomName);
                         currentRoom.joinRoom(usrName, UserChat.this);
-                        chatArea.append("Joined room: " + roomName + "\n");
+                        chatArea.append("Entrou na Sala: " + roomName + "\n");
                     } catch (Exception ex) {
                         ex.printStackTrace();
                     }
@@ -91,7 +93,7 @@ public class UserChat extends UnicastRemoteObject implements IUserChat {
                 if (currentRoom != null) {
                     try {
                         currentRoom.leaveRoom(usrName);
-                        chatArea.append("Left room\n");
+                        chatArea.append("Saiu da Sala\n");
                         currentRoom = null;
                     } catch (RemoteException ex) {
                         ex.printStackTrace();
@@ -142,13 +144,20 @@ public class UserChat extends UnicastRemoteObject implements IUserChat {
     }
 
     public static void main(String[] args) {
+        if (args.length != 1) {
+            System.out.println("Inserir o ip <server-ip>");
+            System.exit(1);
+        }
+
+        String serverIp = args[0];
+
         try {
-            Registry registry = LocateRegistry.getRegistry("localhost", 2020);
+            Registry registry = LocateRegistry.getRegistry(serverIp, 2020);
             IServerChat server = (IServerChat) registry.lookup("Servidor");
 
-            String usrName = JOptionPane.showInputDialog("Enter your username:");
+            String usrName = JOptionPane.showInputDialog("Digite seu nome de usuario:");
             if (usrName != null && !usrName.trim().isEmpty()) {
-                new UserChat(usrName, server);
+                new UserChat(usrName, server, serverIp);
             }
         } catch (Exception e) {
             e.printStackTrace();

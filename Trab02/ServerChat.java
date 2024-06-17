@@ -63,16 +63,16 @@ public class ServerChat extends UnicastRemoteObject implements IServerChat {
                 server.registry = LocateRegistry.getRegistry(2020); // Tenta obter o registry existente se já estiver criado
             }
             server.registry.rebind("Servidor", server);
-            System.out.println("Server is ready.");
+            System.out.println("Servidor está pronto.");
 
             // GUI do Servidor
-            JFrame frame = new JFrame("Server Chat");
+            JFrame frame = new JFrame("Chat do Servidor");
             JTextArea roomListArea = new JTextArea(20, 40);
             roomListArea.setEditable(false);
             server.roomListArea = roomListArea;
             JTextField roomField = new JTextField(20);
-            JButton createButton = new JButton("Create Room");
-            JButton closeButton = new JButton("Close Room");
+            JButton createButton = new JButton("Criar Sala");
+            JButton closeButton = new JButton("Fechar Sala");
 
             frame.setLayout(new BoxLayout(frame.getContentPane(), BoxLayout.Y_AXIS));
             frame.add(new JScrollPane(roomListArea));
