@@ -31,6 +31,7 @@ public class UserChat extends UnicastRemoteObject implements IUserChat {
         this.server = server;
         this.serverIp = serverIp;
         initGUI();
+        updateRoomList();
     }
 
     private void initGUI() {
