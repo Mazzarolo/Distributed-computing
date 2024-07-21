@@ -14,7 +14,7 @@ public class Client implements IStableMulticast {
     @Override
     public void deliver(String msg) {
         // Lógica para tratar a entrega da mensagem recebida
-        System.out.println("Mensagem recebida: " + msg);
+        System.out.println(msg);
     }
     
     public static void main(String[] args) {
