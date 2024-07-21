@@ -74,10 +74,9 @@ public class StableMulticast {
 
     private void sendUnicast(String msg, String address) {
         try {
-            DatagramSocket socket = new DatagramSocket();
             byte[] buffer = msg.getBytes();
             DatagramPacket packet = new DatagramPacket(buffer, buffer.length, InetAddress.getByName(address), port);
-            socket.send(packet);
+            uni.send(packet);
             System.out.println("Mensagem enviada para " + address);
         } catch (IOException e) {
             e.printStackTrace();
@@ -85,11 +84,11 @@ public class StableMulticast {
     }
 
     private void receiveUni() {
-        try (DatagramSocket socket = new DatagramSocket(port)) {
+        try {
             byte[] buffer = new byte[1024];
             while (true) {
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
-                socket.receive(packet);
+                uni.receive(packet);
                 String msg = new String(packet.getData(), 0, packet.getLength());
                 String sender = packet.getAddress().getHostAddress();
                 System.out.println("Recebido de " + sender + ": " + msg);
