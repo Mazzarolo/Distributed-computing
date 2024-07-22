@@ -31,7 +31,7 @@ public class Client implements IStableMulticast {
 
             Scanner scanner = new Scanner(System.in);
             while (true) {
-                System.out.print("Digite uma mensagem para enviar: ");
+                // System.out.print("Digite uma mensagem para enviar: ");
                 String msg = scanner.nextLine();
                 client.stableMulticast.msend(msg, client);
             }
