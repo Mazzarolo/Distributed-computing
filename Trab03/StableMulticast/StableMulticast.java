@@ -4,8 +4,10 @@ import java.io.*;
 import java.net.*;
 import java.util.*;
 
+
+
 public class StableMulticast {
-    
+    static final int N = 3;
     public IStableMulticast client;
     private String ip;
     private Integer port;
@@ -28,8 +30,7 @@ public class StableMulticast {
         this.client = client;
         
         address = new InetSocketAddress(ip, port);
-        int numberOfProcesses = 3;
-        mc = new int[numberOfProcesses][numberOfProcesses];
+        mc = new int[N][N];
         initiateMC();
 
         // Configuração do socket unicast
@@ -44,7 +45,15 @@ public class StableMulticast {
         mult = new MulticastSocket(portMult);
         InetAddress group = InetAddress.getByName(ipMult);
         mult.joinGroup(group);
-        DefaultMessage message = new DefaultMessage("joined", "", address, new int[3]);
+
+        Hashtable<InetSocketAddress, Integer> vc = new Hashtable<>();
+        vc.put(new InetSocketAddress(ip, port), 0);
+        for(int i = 1; i < N; i++) {
+            vc.put(new InetSocketAddress("0.0.0.0", 0), -1);
+        }
+
+        DefaultMessage message = new DefaultMessage("joined", "", address, vc);
+        
         sendMulticast(message);
         // Threads para recebimento de mensagens
         new Thread(this::receiveUni).start();
@@ -57,30 +66,82 @@ public class StableMulticast {
                 mc[i][j] = -1;
             }
         }
+
+        mc[0][0] = 0;
     }
+
+    public void printBuffer(){
+        System.out.println("Buffer de mensagens:");
+        for(DefaultMessage m : messages){
+            System.out.println(m.getIP() + ":" + m.getPort() + " - " + m.getContent());
+        }
+    }
+
+    public void printMC() {
+        // Cria um mapa de ID de membro para IPs e portas
+        HashMap<Integer, InetSocketAddress> idToMember = new HashMap<>();
+        for (Map.Entry<InetSocketAddress, Integer> entry : memberIds.entrySet()) {
+            idToMember.put(entry.getValue(), entry.getKey());
+        }
+        System.out.print("              ");
+        // Imprime os cabeçalhos das colunas
+        for (int i = 0; i < N; i++) {
+            if (idToMember.containsKey(i)) {
+                InetSocketAddress member = idToMember.get(i);
+                System.out.print(member.getAddress().getHostAddress() + ":" + member.getPort() + "  ");
+            }
+            
+        }
+        System.out.println();
+        // Imprime as linhas da matriz com os IPs e portas corretos
+        for (int i = 0; i < N; i++) {
+            if (idToMember.containsKey(i)) {
+                InetSocketAddress member = idToMember.get(i);
+                System.out.print(member.getAddress().getHostAddress() + ":" + member.getPort() + "  ");
+            }
+            for (int j = 0; j < N; j++) {
+                System.out.printf("%4d ", mc[i][j]);
+                System.out.print(String.format("%14s", " "));
+            }
+            System.out.println();
+        }
+
+        printBuffer();
+    }
+    
 
     public void msend(String msg, IStableMulticast client) {
         // Solicitando se o envio será para todos ou não
         Scanner scanner = new Scanner(System.in);
         System.out.print("Enviar mensagem para todos? (s/n): ");
         String choice = scanner.nextLine().trim().toLowerCase();
-        DefaultMessage message = new DefaultMessage("msg", msg, address, new int[3]);
+
+        Hashtable<InetSocketAddress, Integer> vc = new Hashtable<>();
+
+        for(InetSocketAddress member : members) {
+            vc.put(member, mc[0][memberIds.get(member)]);
+        }
+
+        DefaultMessage message = new DefaultMessage("msg", msg, address, vc);
+        
+        
 
         if (choice.equals("s")) {
             // Envio multicast
             sendMulticast(message);
         } else {
             // Envio unicast para membros específicos
-            System.out.println("Membros e ids:");
-            for (InetSocketAddress member : members) {
-                System.out.println(member + " - " + memberIds.get(member));
-            }
             for (InetSocketAddress member : members) {
                 System.out.print("Enviar mensagem para " + member + "? (Digite qualquer tecla para confirmar): ");
                 scanner.nextLine();
                 sendUnicast(message, member);
             }
         }
+        
+        mc[0][0] += 1;
+
+        this.printMC();
+        
     }
 
     private void sendMulticast(DefaultMessage message) {
@@ -118,6 +179,39 @@ public class StableMulticast {
                 
                 if(msg.getPrefix().equals("msg")){
                     messages.add(msg);
+
+                    Iterator<DefaultMessage> iterator = messages.iterator();
+                    while (iterator.hasNext()) {
+                        DefaultMessage m = iterator.next();
+                        
+                        InetSocketAddress messageMember = new InetSocketAddress(m.getIP(), m.getPort());
+                        Integer messageMemberIdx = memberIds.get(messageMember);
+                        Boolean remove = true;
+                        
+                        for (int i = 0; i < N; i++) {
+                            if (mc[i][messageMemberIdx] < m.getVc().get(messageMember)) {
+                                remove = false;
+                            }
+                        }
+                        
+                        if (remove) {
+                            iterator.remove();
+                        }
+                    }
+
+                    if(!(msg.getIP().equals(ip) && msg.getPort() == port)) {
+                        Integer idx = memberIds.get(new InetSocketAddress(msg.getIP(), msg.getPort()));
+                        
+                        Enumeration<InetSocketAddress> e = msg.getVc().keys();
+
+                        while(e.hasMoreElements()) {
+                            InetSocketAddress key = e.nextElement();
+                            mc[idx][memberIds.get(key)] = Math.max(mc[idx][memberIds.get(key)], msg.getVc().get(key));
+
+                        }
+                        mc[0][idx] = Math.max(mc[0][idx], msg.getVc().get(new InetSocketAddress(msg.getIP(), msg.getPort())));
+                        this.printMC();
+                    }
                 }
 
                 if(msg.getIP().equals(ip) && msg.getPort() == port) {
@@ -130,10 +224,12 @@ public class StableMulticast {
                     memberIds.put(member, members.size() - 1);
                 }
                 client.deliver(msg.getMessageText());
+                
             }
         } catch (IOException e) {
             e.printStackTrace();
         }
+
     }
 
     private void receiveMult() {
@@ -148,6 +244,40 @@ public class StableMulticast {
 
                 if(message.getPrefix().equals("msg")) {
                     messages.add(message);
+
+                    Iterator<DefaultMessage> iterator = messages.iterator();
+                    while (iterator.hasNext()) {
+                        DefaultMessage m = iterator.next();
+                        
+                        InetSocketAddress messageMember = new InetSocketAddress(m.getIP(), m.getPort());
+                        Integer messageMemberIdx = memberIds.get(messageMember);
+                        Boolean remove = true;
+                        
+                        for (int i = 0; i < N; i++) {
+                            if (mc[i][messageMemberIdx] < m.getVc().get(messageMember)) {
+                                remove = false;
+                            }
+                        }
+                        
+                        if (remove) {
+                            iterator.remove();
+                        }
+                    }
+
+
+                    if(!(message.getIP().equals(ip) && message.getPort() == port)) {
+                        Integer idx = memberIds.get(new InetSocketAddress(message.getIP(), message.getPort()));
+                        
+                        Enumeration<InetSocketAddress> e = message.getVc().keys();
+
+                        while(e.hasMoreElements()) {
+                            InetSocketAddress key = e.nextElement();
+                            mc[idx][memberIds.get(key)] = Math.max(mc[idx][memberIds.get(key)], message.getVc().get(key));
+                        }
+                        mc[0][idx] = Math.max(mc[0][idx], message.getVc().get(new InetSocketAddress(message.getIP(), message.getPort())));
+                        this.printMC();
+                    }
+                    
                 }
 
                 if(message.getIP().equals(ip) && message.getPort() == port) {
@@ -158,10 +288,20 @@ public class StableMulticast {
                     InetSocketAddress member = new InetSocketAddress(message.getIP(), message.getPort());
                     members.add(member);
                     memberIds.put(member, members.size() - 1);
-                    sendUnicast(new DefaultMessage("already joined", "", address, new int[3]), member);
+
+                    Hashtable<InetSocketAddress, Integer> vc = new Hashtable<>();
+                    
+                    vc.put(new InetSocketAddress(ip, port), 0);
+                    for(int i = 1; i < N; i++) {
+                        vc.put(new InetSocketAddress("0.0.0.0", 0), -1);
+                    }
+
+
+                    sendUnicast(new DefaultMessage("already joined", "", address, vc), member);
                 }
 
                 client.deliver(message.getMessageText());
+                
             }
         } catch (IOException e) {
             e.printStackTrace();
